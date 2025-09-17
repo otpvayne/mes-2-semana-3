@@ -1,27 +1,40 @@
-// Objeto de ejemplo en JavaScript
-const persona = {
-  nombre: "María",
-  edad: 30,
-  ciudad: "Bogotá"
+// =============================
+// Ejercicio 1: Objeto a JSON
+// =============================
+const curso = {
+  nombre: "JavaScript desde cero",
+  duracion: "4 semanas",
+  nivel: "Principiante"
 };
 
-// Convertir objeto JS a JSON (string)
-const personaJSON = JSON.stringify(persona);
-console.log("Objeto convertido a JSON:", personaJSON);
+const cursoJSON = JSON.stringify(curso);
+console.log("Objeto convertido a JSON:");
+console.log(cursoJSON);
 
-// Convertir de JSON a objeto JS
-const personaObjeto = JSON.parse(personaJSON);
-console.log("JSON convertido a Objeto:", personaObjeto);
 
-// Simulando usuarios (como si vinieran de usuarios.json)
-const usuarios = [
-  { id: 1, nombre: "Ana", email: "ana@email.com" },
-  { id: 2, nombre: "Luis", email: "luis@email.com" },
-  { id: 3, nombre: "Carlos", email: "carlos@email.com" }
-];
+// =============================
+// Ejercicio 2: Parsear JSON
+// =============================
+const cursoParseado = JSON.parse(cursoJSON);
+console.log(`Curso: ${cursoParseado.nombre} – Nivel: ${cursoParseado.nivel}`);
 
-// Imprimir lista de usuarios
+
+// =============================
+// Ejercicio 3 (Desafío): usuarios.json
+// =============================
+
+// Simulación de archivo usuarios.json
+const usuariosJSON = `
+[
+  { "id": 1, "nombre": "Ana", "email": "ana@mail.com" },
+  { "id": 2, "nombre": "Luis", "email": "luis@mail.com" },
+  { "id": 3, "nombre": "María", "email": "maria@mail.com" }
+]
+`;
+
+const usuarios = JSON.parse(usuariosJSON);
+
+console.log("=== Lista de Usuarios ===");
 usuarios.forEach(usuario => {
-  console.log(`ID: ${usuario.id}, Nombre: ${usuario.nombre}, Email: ${usuario.email}`);
+  console.log(`Usuario ${usuario.id}: ${usuario.nombre} – ${usuario.email}`);
 });
-
