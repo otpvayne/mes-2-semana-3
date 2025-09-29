@@ -1,12 +1,17 @@
 'use strict';
 
 /*
-  app.js
+  app.js (mejorado con retos)
   - fetch a Rick & Morty API
   - render cards desde data.results
   - búsqueda local por nombre
   - delegación para botones (Ver / Favorito)
   - "Cargar más" usando siguiente URL de la API
+  - RETOS añadidos:
+    * Paginación Prev / Next
+    * Modal accesible en lugar de alert()
+    * Favoritos persistentes (localStorage)
+    * Skeleton placeholders mientras se carga
 */
 
 // Config y selectores
@@ -17,81 +22,222 @@ const searchEl  = document.getElementById('search');
 const loadMoreBtn = document.getElementById('loadMore');
 const template = document.getElementById('card-template');
 
+// Creamos contenedor de controles si existe (.controls), para añadir Prev/Next
+const controlsEl = document.querySelector('.controls') || document.body;
+
 // Estado local
 let nextUrl = API_BASE; // URL siguiente a consultar (paging)
+let prevUrl = null;     // URL previa
 let items = [];         // array con personajes cargados
 
-// Mostrar mensaje de estado (loading / error / info)
+// KEY para favoritos en localStorage
+const FAV_KEY = 'catalogo_favs_v1';
+
+// ---------- UI Dinámico: crear botones Prev / Next ----------
+const prevBtn = document.createElement('button');
+prevBtn.id = 'prevBtn';
+prevBtn.className = 'btn';
+prevBtn.textContent = 'Prev';
+prevBtn.style.display = 'none'; // oculto hasta que haya prev
+prevBtn.disabled = true;
+
+const nextBtn = document.createElement('button');
+nextBtn.id = 'nextBtn';
+nextBtn.className = 'btn';
+nextBtn.textContent = 'Next';
+nextBtn.style.display = 'none';
+nextBtn.disabled = true;
+
+// Insertar prev/next antes (o cerca) del botón loadMore si existe
+if (loadMoreBtn && controlsEl.contains(loadMoreBtn)) {
+  controlsEl.insertBefore(prevBtn, loadMoreBtn);
+  controlsEl.insertBefore(nextBtn, loadMoreBtn.nextSibling);
+} else {
+  // si no existe controls, agregamos al body
+  controlsEl.appendChild(prevBtn);
+  controlsEl.appendChild(nextBtn);
+}
+
+// ---------- Modal accesible (creado dinámicamente) ----------
+const modal = document.createElement('div');
+modal.className = 'rm-modal';
+modal.setAttribute('role', 'dialog');
+modal.setAttribute('aria-hidden', 'true');
+modal.setAttribute('aria-modal', 'true');
+modal.innerHTML = `
+  <div class="rm-modal__overlay" tabindex="-1"></div>
+  <div class="rm-modal__content" role="document">
+    <button class="rm-modal__close" aria-label="Cerrar diálogo">×</button>
+    <div class="rm-modal__body"></div>
+  </div>
+`;
+document.body.appendChild(modal);
+
+const modalOverlay = modal.querySelector('.rm-modal__overlay');
+const modalClose = modal.querySelector('.rm-modal__close');
+const modalBody = modal.querySelector('.rm-modal__body');
+
+let lastFocusedElement = null;
+
+function openModal(personaje) {
+  lastFocusedElement = document.activeElement;
+  modalBody.innerHTML = `
+    <h2>${personaje.name}</h2>
+    <img src="${personaje.image}" alt="${personaje.name}" style="max-width:240px;display:block;margin:0.5rem 0;">
+    <p><strong>Especie:</strong> ${personaje.species}</p>
+    <p><strong>Estado:</strong> ${personaje.status}</p>
+    <p><strong>Género:</strong> ${personaje.gender}</p>
+    <p><strong>Origen:</strong> ${personaje.origin?.name || '—'}</p>
+  `;
+  modal.setAttribute('aria-hidden', 'false');
+  modal.style.display = 'flex';
+  modalClose.focus();
+
+  // ESC para cerrar
+  window.addEventListener('keydown', handleKeyDownModal);
+}
+
+function closeModal() {
+  modal.setAttribute('aria-hidden', 'true');
+  modal.style.display = 'none';
+  modalBody.innerHTML = '';
+  window.removeEventListener('keydown', handleKeyDownModal);
+  if (lastFocusedElement) lastFocusedElement.focus();
+}
+function handleKeyDownModal(e) {
+  if (e.key === 'Escape') closeModal();
+}
+
+// cerrar por overlay o boton
+modalOverlay.addEventListener('click', closeModal);
+modalClose.addEventListener('click', closeModal);
+
+// ---------- Helpers: status / skeleton ----------
 function setStatus(text, isError=false) {
-  statusEl.textContent = text;
+  statusEl.textContent = text || '';
   statusEl.style.color = isError ? 'crimson' : '';
 }
 
-// Fetch con manejo de errores y parseo JSON
+function showSkeleton(count = 6) {
+  catalogEl.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'card skeleton';
+    s.style.minHeight = '260px';
+    s.style.display = 'flex';
+    s.style.flexDirection = 'column';
+    s.style.justifyContent = 'flex-start';
+    s.style.padding = '0.4rem';
+    s.innerHTML = `
+      <div style="width:100%;height:160px;background:#e6edf3;border-radius:8px"></div>
+      <div style="height:12px;width:60%;background:#e6edf3;border-radius:8px;margin-top:10px"></div>
+      <div style="height:12px;width:40%;background:#e6edf3;border-radius:8px;margin-top:8px"></div>
+    `;
+    frag.appendChild(s);
+  }
+  catalogEl.appendChild(frag);
+}
+
+// ---------- Favorites helpers ----------
+function getFavorites() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
+    // asegurar números
+    return raw.map(id => Number(id));
+  } catch {
+    return [];
+  }
+}
+function toggleFavorite(id, on) {
+  const key = FAV_KEY;
+  const current = getFavorites();
+  const nId = Number(id);
+  const exists = current.includes(nId);
+  if (on && !exists) {
+    current.push(nId);
+  } else if (!on && exists) {
+    const idx = current.indexOf(nId);
+    current.splice(idx, 1);
+  }
+  localStorage.setItem(key, JSON.stringify(current));
+}
+
+// ---------- Fetch con manejo de errores y parseo JSON ----------
 async function fetchAndAppend(url) {
   try {
     setStatus('Cargando personajes…');
+    // mostrar skeleton mientras carga
+    showSkeleton(6);
+    // deshabilitar botones
     loadMoreBtn.disabled = true;
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    // data.info.next → url para la siguiente página (o null)
+    // paging
     nextUrl = data.info.next;
-    items = items.concat(data.results); // añadir al estado
+    prevUrl = data.info.prev;
+
+    // concatenar resultados (estado acumulado)
+    items = items.concat(data.results);
 
     render(items); // re-render con array actualizado
 
-    // Si no hay más páginas, ocultar botón
-    if (!nextUrl) {
-      loadMoreBtn.style.display = 'none';
-      setStatus('Todos los personajes cargados.');
-    } else {
-      loadMoreBtn.style.display = '';
-      setStatus('');
-      loadMoreBtn.disabled = false;
-    }
+    // Mostrar/ocultar botones de paginación
+    prevBtn.style.display = prevUrl ? '' : 'none';
+    nextBtn.style.display = nextUrl ? '' : 'none';
+    prevBtn.disabled = !prevUrl;
+    nextBtn.disabled = !nextUrl;
+    // Además controlamos el botón loadMore (mantener compatibilidad)
+    loadMoreBtn.style.display = nextUrl ? '' : 'none';
+
+    // limpiar status
+    setStatus('');
+    loadMoreBtn.disabled = false;
   } catch (err) {
     console.error(err);
     setStatus('Error al cargar datos. Abre la consola para más info.', true);
     loadMoreBtn.disabled = false;
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
   }
 }
 
-// Renderiza un array de items (cards)
+// ---------- Render basado en template, ahora respetando favoritos ----------
 function render(list) {
-  // Limpiar
   catalogEl.innerHTML = '';
 
-  // Si no hay items, mostrar placeholder
   if (!list || list.length === 0) {
     catalogEl.innerHTML = '<p>No hay elementos para mostrar.</p>';
     return;
   }
 
-  // Render usando template para evitar reconstruir strings crudos
+  const favs = getFavorites();
   const frag = document.createDocumentFragment();
   for (const personaje of list) {
-    // clonar el template
     const node = template.content.cloneNode(true);
-    const article = node.querySelector('.card');
     const img = node.querySelector('.card__img');
     const title = node.querySelector('.card__title');
     const meta = node.querySelector('.card__meta');
     const verBtn = node.querySelector('.card-btn');
     const favBtn = node.querySelector('.fav-btn');
 
-    // rellenar datos
     img.src = personaje.image;
     img.alt = `${personaje.name} - imagen`;
     title.textContent = personaje.name;
     meta.textContent = `${personaje.species} • ${personaje.status}`;
 
-    // datos útiles en atributos data-*
     verBtn.dataset.id = personaje.id;
     favBtn.dataset.id = personaje.id;
-    favBtn.setAttribute('aria-pressed', 'false'); // no favorito por defecto
+
+    // Si está en favoritos, marcarlo (persistente)
+    const isFav = favs.includes(Number(personaje.id));
+    favBtn.setAttribute('aria-pressed', isFav ? 'true' : 'false');
+    favBtn.textContent = isFav ? '❤' : '❤'; // puedes cambiar icono si quieres
 
     frag.appendChild(node);
   }
@@ -106,7 +252,7 @@ function filterByName(term) {
   return items.filter(p => p.name.toLowerCase().includes(low));
 }
 
-// Delegación: manejar clicks en botones dentro del catálogo
+// ---------- Delegación: manejar clicks en botones dentro del catálogo ----------
 catalogEl.addEventListener('click', (e) => {
   const ver = e.target.closest('.card-btn');
   const fav = e.target.closest('.fav-btn');
@@ -114,7 +260,7 @@ catalogEl.addEventListener('click', (e) => {
   if (ver) {
     const id = ver.dataset.id;
     const p = items.find(x => String(x.id) === String(id));
-    if (p) showDetailModal(p);
+    if (p) openModal(p); // ahora abrimos modal accesible
     return;
   }
 
@@ -122,45 +268,42 @@ catalogEl.addEventListener('click', (e) => {
     const id = fav.dataset.id;
     const pressed = fav.getAttribute('aria-pressed') === 'true';
     fav.setAttribute('aria-pressed', String(!pressed));
-    // visual: cambiar texto o estado
+    // toggle visual (podrías cambiar clases)
     fav.textContent = !pressed ? '❤' : '❤';
-    // opcional: guardar favoritos en localStorage
     toggleFavorite(id, !pressed);
     return;
   }
 });
 
-// Mostrar detalle simple (alert / modal). Aquí uso alert por simplicidad.
-function showDetailModal(personaje) {
-  // En un proyecto real abrirías un modal con más datos.
-  alert(`${personaje.name}\nEspecie: ${personaje.species}\nEstado: ${personaje.status}`);
-}
-
-// Favoritos simple en localStorage (IDs)
-function toggleFavorite(id, on) {
-  const key = 'catalogo_favs_v1';
-  const current = JSON.parse(localStorage.getItem(key) || '[]');
-  const exists = current.includes(id);
-  if (on && !exists) {
-    current.push(id);
-  } else if (!on && exists) {
-    const idx = current.indexOf(id);
-    current.splice(idx, 1);
-  }
-  localStorage.setItem(key, JSON.stringify(current));
-}
-
-// Búsqueda en UI
+// ---------- Búsqueda en UI ----------
 searchEl.addEventListener('input', (e) => {
   const filtered = filterByName(e.target.value);
   render(filtered);
 });
 
-// Cargar más button
+// ---------- Prev / Next handlers ----------
+prevBtn.addEventListener('click', () => {
+  if (prevUrl) {
+    // si usamos paging "ir a" prev, reseteamos items y pedimos prev (puedes decidir acumular o reemplazar)
+    // aquí reemplazamos items por la página solicitada para simular navegación por páginas
+    items = []; // limpiar acumulado si quieres comportamiento paginado
+    fetchAndAppend(prevUrl);
+  }
+});
+nextBtn.addEventListener('click', () => {
+  if (nextUrl) {
+    fetchAndAppend(nextUrl);
+  }
+});
+
+// Compatibilidad: loadMoreBtn sigue llamando next
 loadMoreBtn.addEventListener('click', () => {
   if (nextUrl) fetchAndAppend(nextUrl);
 });
 
-// Inicio: primera petición
+// ---------- Inicio: primera petición ----------
 fetchAndAppend(nextUrl);
 
+// ---------- (Opcional) Guardar favoritos en UI al cargar (marca los favs si volvemos a renderizar) ----------
+/* Nota: render() ya lee los favoritos en cada render para marcarlos.
+   Si quieres aplicar marcados a botones ya existentes sin re-render, podrías recorrer botones en DOM. */
