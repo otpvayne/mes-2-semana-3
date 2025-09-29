@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Catálogo API — Día 33</title>
+  <link rel="stylesheet" href="/dia-3/catalogo-api/css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="topbar">
+      <h1>Catálogo — Personajes</h1>
+      <div class="controls">
+        <input id="search" type="search" placeholder="Buscar por nombre..." aria-label="Buscar personajes">
+        <button id="loadMore" class="btn">Cargar más</button>
+      </div>
+    </header>
+
+    <section id="status" aria-live="polite" class="status"></section>
+
+    <section id="catalog" class="grid" aria-live="polite" aria-label="Catálogo de personajes"></section>
+
+    <template id="card-template">
+      <article class="card">
+        <img class="card__img" alt="">
+        <div class="card__body">
+          <h3 class="card__title"></h3>
+          <p class="card__meta"></p>
+          <div class="card__actions">
+            <button class="card-btn" type="button">Ver</button>
+            <button class="fav-btn" type="button" aria-pressed="false">❤</button>
+          </div>
+        </div>
+      </article>
+    </template>
+  </main>
+
+  <script src="/dia-3/catalogo-api/js/app.js"></script>
+</body>
+</html>
+
