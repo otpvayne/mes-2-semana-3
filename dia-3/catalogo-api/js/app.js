@@ -307,3 +307,77 @@ fetchAndAppend(nextUrl);
 // ---------- (Opcional) Guardar favoritos en UI al cargar (marca los favs si volvemos a renderizar) ----------
 /* Nota: render() ya lee los favoritos en cada render para marcarlos.
    Si quieres aplicar marcados a botones ya existentes sin re-render, podrías recorrer botones en DOM. */
+// Selectores nuevos (añade si no los tienes)
+const loadingEl = document.getElementById('loading');
+const errorBox = document.getElementById('errorBox');
+const errorMsg = document.getElementById('errorMsg');
+const retryBtn = document.getElementById('retryBtn');
+
+// Estado de UI: helper para mostrar/ocultar loading/error
+function showLoading(on = true) {
+  if (!loadingEl) return;
+  loadingEl.setAttribute('aria-hidden', String(!on));
+}
+function showError(message = 'Ocurrió un error. Intenta de nuevo.', show = true) {
+  if (!errorBox) return;
+  errorMsg.textContent = message;
+  if (show) {
+    errorBox.hidden = false;
+  } else {
+    errorBox.hidden = true;
+  }
+}
+
+// Retry handler (se reutiliza la última URL solicitada)
+let lastRequestedUrl = null;
+retryBtn.addEventListener('click', () => {
+  showError('', false);
+  if (lastRequestedUrl) fetchAndAppend(lastRequestedUrl);
+});
+
+// Modificar fetchAndAppend para usar try/catch/finally y controlar loading
+async function fetchAndAppend(url) {
+  lastRequestedUrl = url;        // guardamos para "reintentar"
+  try {
+    setStatus('Cargando personajes…');
+    showError('', false);       // ocultar errores previos
+    showLoading(true);          // mostrar spinner
+    loadMoreBtn.disabled = true;
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+
+    const res = await fetch(url, { cache: "no-store", signal: null }); // puedes agregar timeout con AbortController
+    if (!res.ok) {
+      // muestras mensaje amable, y logueas error
+      throw new Error(`HTTP ${res.status} (${res.statusText})`);
+    }
+    const data = await res.json();
+
+    nextUrl = data.info.next;
+    prevUrl = data.info.prev;
+
+    items = items.concat(data.results);
+    render(items);
+
+    // actualizar paginación/ui
+    prevBtn.style.display = prevUrl ? '' : 'none';
+    nextBtn.style.display = nextUrl ? '' : 'none';
+    prevBtn.disabled = !prevUrl;
+    nextBtn.disabled = !nextUrl;
+    loadMoreBtn.style.display = nextUrl ? '' : 'none';
+
+    setStatus('');
+  } catch (err) {
+    console.error('Fetch error:', err);
+    // Mensaje al usuario: no mostrar stack trace, sino una línea amigable
+    showError('No se pudo conectar con el servidor. Revisa tu conexión o intenta más tarde.');
+    setStatus('Error al cargar personajes.', true);
+  } finally {
+    // Siempre ejecutar limpieza: ocultar loading y reactivar botones si aplica
+    showLoading(false);
+    loadMoreBtn.disabled = false;
+    prevBtn.disabled = !prevUrl;
+    nextBtn.disabled = !nextUrl;
+  }
+}
+

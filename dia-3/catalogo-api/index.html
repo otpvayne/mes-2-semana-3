@@ -14,6 +14,21 @@
         <input id="search" type="search" placeholder="Buscar por nombre..." aria-label="Buscar personajes">
         <button id="loadMore" class="btn">Cargar más</button>
       </div>
+      <!-- Spinner / Loading -->
+<div id="loading" class="loading" aria-hidden="true" role="status" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <span class="loading__text">Cargando...</span>
+</div>
+
+<!-- Contenedor de error con botón reintentar -->
+<div id="errorBox" class="error-box" role="alert" aria-live="assertive" hidden>
+  <p id="errorMsg">Ocurrió un error.</p>
+  <div>
+    <button id="retryBtn" class="btn">Reintentar</button>
+  </div>
+</div>
+
+
     </header>
 
     <section id="status" aria-live="polite" class="status"></section>
