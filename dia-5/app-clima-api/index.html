@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>App Clima (Día 35)</title>
+  <link rel="stylesheet" href="/dia-5/app-clima-api/css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>App del Clima 🌤️</h1>
+      <p class="lead">Escribe una ciudad y obtén temperatura, descripción e ícono.</p>
+    </header>
+
+    <section class="controls">
+      <form id="searchForm" aria-label="Buscar ciudad">
+        <label for="cityInput" class="visually-hidden">Ciudad</label>
+        <input id="cityInput" type="text" placeholder="Ej: Bogotá, co" required />
+        <button id="searchBtn" type="submit" class="btn">Buscar</button>
+      </form>
+
+      <div id="loading" class="loading" aria-hidden="true" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span class="loading__text">Buscando clima…</span>
+      </div>
+
+      <div id="errorBox" class="error-box" role="alert" aria-live="assertive" hidden>
+        <p id="errorMsg">Ocurrió un error.</p>
+        <button id="retryBtn" class="btn btn--ghost">Reintentar</button>
+      </div>
+    </section>
+
+    <section id="result" class="card result" aria-live="polite">
+      <!-- contenido renderizado por JS -->
+      <p class="placeholder">Introduce una ciudad y presiona Buscar.</p>
+    </section>
+
+    <footer class="footer">
+      <small>Usa tu propia API key de OpenWeather. No expongas claves en repositorios públicos.</small>
+    </footer>
+  </main>
+
+  <script src="/dia-5/app-clima-api/js/app.js"></script>
+</body>
+</html>
+
