@@ -6,7 +6,7 @@
 */
 
 // >>> CONFIG: reemplaza por tu API key de OpenWeather (no la subas en público)
-const API_KEY = process.env.YOUR_OPENWEATHER_API_KEY; // <-- reemplaza aquí
+const API_KEY = '0b4026912f6af0e737a876926440f6d3'; // <-- reemplaza aquí
 const API_BASE = 'https://api.openweathermap.org/data/2.5/weather';
 
 // Selectores
@@ -114,9 +114,9 @@ async function fetchWeatherForCity(city) {
 
     const data = await res.json();
     // Renderizar datos
+    showError('', false);
     renderWeather(data);
     showLoading(false);
-    showError('', false);
 
   } catch (err) {
     clearTimeout(timeoutId);
@@ -146,4 +146,17 @@ retryBtn.addEventListener('click', () => {
 
 // Inicial
 clearResult();
+// -------------------
+// Inicialización UI
+// -------------------
+clearResult();          // placeholder inicial
+showError('', false);   // ocultar error al inicio
+showLoading(false);     // asegurar spinner oculto
+if (errorBox) errorBox.hidden = true; // forzar hidden por seguridad
+
+// Ocultar error cuando el usuario interactúa con el input (mejor UX)
+if (cityInput) {
+  cityInput.addEventListener('input', () => showError('', false));
+  cityInput.addEventListener('focus', () => showError('', false));
+}
 
